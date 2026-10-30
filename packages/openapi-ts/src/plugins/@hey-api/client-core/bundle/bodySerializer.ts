@@ -18,7 +18,33 @@ export type QuerySerializerOptions = QuerySerializerOptionsObject & {
   parameters?: Record<string, QuerySerializerOptionsObject>;
 };
 
+/**
+ * React Native doesn't support `Blob` in `FormData`. Instead, files are
+ * represented as `{ uri, name, type }` objects which the native networking
+ * layer reads from disk.
+ */
+type ReactNativeFile = {
+  name: string;
+  type: string;
+  uri: string;
+};
+
+const isReactNative = (): boolean =>
+  typeof navigator !== 'undefined' && navigator.product === 'ReactNative';
+
+const isReactNativeFile = (value: unknown): value is ReactNativeFile =>
+  typeof value === 'object' &&
+  value !== null &&
+  typeof (value as ReactNativeFile).name === 'string' &&
+  typeof (value as ReactNativeFile).type === 'string' &&
+  typeof (value as ReactNativeFile).uri === 'string';
+
 const serializeFormDataPair = (data: FormData, key: string, value: unknown): void => {
+  if (isReactNative() && isReactNativeFile(value)) {
+    data.append(key, value as unknown as Blob);
+    return;
+  }
+
   if (typeof value === 'string' || value instanceof Blob) {
     data.append(key, value);
   } else if (value instanceof Date) {
